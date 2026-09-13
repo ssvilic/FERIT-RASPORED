@@ -32,7 +32,10 @@
     min-height: 100vh;
     padding-bottom: 40px;
   }
-  .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+  .wrap { width: 100%; margin: 0 auto; padding: 14px; }
+  @media (min-width: 900px) {
+    .wrap { max-width: 1100px; padding: 28px 32px; }
+  }
 
   header.app-head {
     display: flex; align-items: center; justify-content: space-between;
