@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raspored — FERIT</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F2340">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F2340;
+    --bg-panel: #15304F;
+    --bg-panel-2: #1C3A5E;
+    --grid-line: rgba(61, 219, 217, 0.28);
+    --accent: #3DDBD9;
+    --accent-warm: #F2A65A;
+    --text: #EAF3F5;
+    --text-dim: #8FAFC2;
+    --danger: #E2857A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+  header.app-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 0 16px;
+  }
+  header.app-head h1 {
+    font-size: 18px; font-weight: 600; margin: 0; letter-spacing: 0.02em;
+  }
+  .icon-btn {
+    background: none; border: 1px solid var(--grid-line); color: var(--text);
+    border-radius: 8px; width: 36px; height: 36px; font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { border-color: var(--accent); }
+
+  .week-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg-panel); border-radius: 12px; padding: 10px 12px;
+    margin-bottom: 18px;
+  }
+  .week-nav .label { font-family: 'IBM Plex Mono'; font-size: 13px; color: var(--text-dim); text-align: center; flex: 1; }
+  .week-nav button { background: none; border: none; color: var(--accent); font-size: 20px; cursor: pointer; padding: 4px 10px; }
+  .today-btn {
+    display: block; margin: -10px auto 18px; background: none; border: 1px solid var(--accent-warm);
+    color: var(--accent-warm); border-radius: 20px; padding: 6px 16px; font-size: 13px; cursor: pointer;
+  }
+
+  .day-block { margin-bottom: 22px; }
+  .day-head {
+    font-family: 'IBM Plex Mono'; font-size: 13px; color: var(--accent);
+    border-bottom: 1px solid var(--grid-line); padding-bottom: 6px; margin-bottom: 10px;
+    display: flex; justify-content: space-between;
+  }
+  .day-head.today { color: var(--accent-warm); border-bottom-color: var(--accent-warm); }
+
+  .event-row {
+    display: grid; grid-template-columns: 78px 1fr; gap: 12px;
+    padding: 10px 0; border-bottom: 1px dashed var(--grid-line);
+  }
+  .event-row:last-child { border-bottom: none; }
+  .ev-time { font-family: 'IBM Plex Mono'; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .ev-title { font-size: 14px; font-weight: 500; line-height: 1.4; }
+  .ev-details { font-size: 12px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; white-space: pre-line; }
+  .ev-actions { margin-top: 6px; }
+  .ev-actions a {
+    font-size: 12px; color: var(--accent); text-decoration: none; border: 1px solid var(--grid-line);
+    padding: 3px 10px; border-radius: 14px;
+  }
+  .ev-actions a:hover { border-color: var(--accent); }
+
+  .empty-note, .status-note {
+    font-family: 'IBM Plex Mono'; font-size: 13px; color: var(--text-dim);
+    padding: 20px 0; text-align: center;
+  }
+  .status-note.error { color: var(--danger); }
+
+  .cal-bar {
+    background: var(--bg-panel); border-radius: 12px; padding: 14px; margin: 4px 0 22px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .cal-bar button {
+    background: var(--accent); color: #06231F; border: none; border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .cal-bar button.secondary { background: none; border: 1px solid var(--accent); color: var(--accent); }
+  .cal-bar button:disabled { opacity: 0.5; cursor: default; }
+  .cal-bar .sync-status { font-family: 'IBM Plex Mono'; font-size: 12px; color: var(--text-dim); }
+
+  .modal-back {
+    position: fixed; inset: 0; background: rgba(4, 12, 24, 0.75);
+    display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20;
+  }
+  .modal {
+    background: var(--bg-panel); border-radius: 14px; padding: 22px; max-width: 420px; width: 100%;
+  }
+  .modal h2 { font-size: 16px; margin: 0 0 14px; }
+  .modal label { display: block; font-size: 12px; color: var(--text-dim); margin: 12px 0 4px; }
+  .modal input {
+    width: 100%; background: var(--bg-panel-2); border: 1px solid var(--grid-line); color: var(--text);
+    border-radius: 8px; padding: 9px 10px; font-size: 13px; font-family: 'IBM Plex Mono';
+  }
+  .modal .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .modal button {
+    flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 14px; cursor: pointer;
+  }
+  .modal button.primary { background: var(--accent); color: #06231F; font-weight: 600; }
+  .modal button.ghost { background: none; border: 1px solid var(--grid-line); color: var(--text); }
+  .modal p.hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app-head">
+    <h1>Raspored — FERIT</h1>
+    <button class="icon-btn" id="settingsBtn" aria-label="Postavke" title="Postavke">&#9881;</button>
+  </header>
+
+  <div class="week-nav">
+    <button id="prevWeek" aria-label="Prethodni tjedan">&#8592;</button>
+    <div class="label" id="weekLabel">—</div>
+    <button id="nextWeek" aria-label="Sljedeći tjedan">&#8594;</button>
+  </div>
+  <button class="today-btn" id="todayBtn">Danas</button>
+
+  <div class="cal-bar">
+    <button id="googleBtn">Prijavi se Google računom</button>
+    <button id="addAllBtn" class="secondary" disabled>Dodaj prikazani tjedan u kalendar</button>
+    <div class="sync-status" id="syncStatus"></div>
+  </div>
+
+  <div id="scheduleRoot">
+    <div class="status-note">Učitavanje…</div>
+  </div>
+
+</div>
+
+<div class="modal-back" id="settingsModal" style="display:none">
+  <div class="modal">
+    <h2>Postavke</h2>
+    <label for="cfgGroup">Kod grupe (zadnji dio URL-a rasporeda, npr. 1-60)</label>
+    <input id="cfgGroup" placeholder="1-60">
+    <label for="cfgProxy">URL Cloudflare Worker proxyja</label>
+    <input id="cfgProxy" placeholder="https://tvoj-worker.workers.dev">
+    <label for="cfgClientId">Google OAuth Client ID</label>
+    <input id="cfgClientId" placeholder="xxxx.apps.googleusercontent.com">
+    <p class="hint">Client ID trebaš napraviti jednom u Google Cloud Console (OAuth consent + Web application credential). Bez njega prijava u Google radi, ali dodavanje u kalendar neće.</p>
+    <div class="modal-actions">
+      <button class="ghost" id="cfgCancel">Odustani</button>
+      <button class="primary" id="cfgSave">Spremi</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const LS = {
+  group: "raspored_group",
+  proxy: "raspored_proxy",
+  clientId: "raspored_client_id",
+  addedIds: "raspored_added_ids",
+};
+
+let cfg = {
+  group: localStorage.getItem(LS.group) || "1-60",
+  proxy: localStorage.getItem(LS.proxy) || "",
+  clientId: localStorage.getItem(LS.clientId) || "",
+};
+
+let currentMonday = mondayOf(new Date());
+let currentEvents = [];
+let accessToken = null;
+let tokenClient = null;
+
+// ---------- datumi ----------
+function mondayOf(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function fmtISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function fmtWeekLabel(monday) {
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  const opts = { day: "2-digit", month: "2-digit", year: "numeric" };
+  return `${monday.toLocaleDateString("hr-HR", opts)} – ${sunday.toLocaleDateString("hr-HR", opts)}`;
+}
+function zagrebDateKey(isoUtc) {
+  const d = new Date(isoUtc);
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Zagreb" }).format(d); // YYYY-MM-DD
+}
+function zagrebTime(isoUtc) {
+  const d = new Date(isoUtc);
+  return new Intl.DateTimeFormat("hr-HR", { timeZone: "Europe/Zagreb", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+}
+function zagrebDayLabel(dateKey) {
+  const d = new Date(dateKey + "T12:00:00Z");
+  const names = ["Ned", "Pon", "Uto", "Sri", "Čet", "Pet", "Sub"];
+  const label = names[d.getUTCDay()];
+  const [y, m, day] = dateKey.split("-");
+  return `${label} ${day}.${m}.${y}.`;
+}
+
+// ---------- ucitavanje rasporeda ----------
+async function loadWeek() {
+  const root = document.getElementById("scheduleRoot");
+  document.getElementById("weekLabel").textContent = fmtWeekLabel(currentMonday);
+
+  if (!cfg.proxy) {
+    root.innerHTML = `<div class="status-note error">Prvo u postavkama (⚙) unesi URL svog Cloudflare Worker proxyja.</div>`;
+    return;
+  }
+
+  root.innerHTML = `<div class="status-note">Učitavanje…</div>`;
+  const dateStr = fmtISODate(currentMonday);
+  const url = `${cfg.proxy.replace(/\/$/, "")}/?date=${dateStr}&group=${encodeURIComponent(cfg.group)}`;
+
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (data.error) {
+      root.innerHTML = `<div class="status-note error">${escapeHtml(data.error)}</div>`;
+      currentEvents = [];
+      updateAddAllState();
+      return;
+    }
+    currentEvents = data.events || [];
+    renderWeek();
+  } catch (err) {
+    root.innerHTML = `<div class="status-note error">Ne mogu se spojiti na proxy. Provjeri URL u postavkama.</div>`;
+    currentEvents = [];
+    updateAddAllState();
+  }
+}
+
+function renderWeek() {
+  const root = document.getElementById("scheduleRoot");
+  if (currentEvents.length === 0) {
+    root.innerHTML = `<div class="empty-note">Za ovaj tjedan još nema objavljenog rasporeda.</div>`;
+    updateAddAllState();
+    return;
+  }
+
+  const byDay = {};
+  for (const ev of currentEvents) {
+    const key = zagrebDateKey(ev.start);
+    (byDay[key] = byDay[key] || []).push(ev);
+  }
+
+  const todayKey = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Zagreb" }).format(new Date());
+  const days = Object.keys(byDay).sort();
+
+  root.innerHTML = days.map(dayKey => {
+    const isToday = dayKey === todayKey;
+    const rows = byDay[dayKey].map(ev => `
+      <div class="event-row">
+        <div class="ev-time">${zagrebTime(ev.start)}<br>${zagrebTime(ev.end)}</div>
+        <div>
+          <div class="ev-title">${escapeHtml(ev.title)}</div>
+          ${ev.details ? `<div class="ev-details">${escapeHtml(ev.details)}</div>` : ""}
+          <div class="ev-actions"><a href="${ev.calendarUrl}" target="_blank" rel="noopener">Dodaj pojedinačno</a></div>
+        </div>
+      </div>
+    `).join("");
+    return `
+      <div class="day-block">
+        <div class="day-head ${isToday ? "today" : ""}">${zagrebDayLabel(dayKey)}</div>
+        ${rows}
+      </div>
+    `;
+  }).join("");
+
+  updateAddAllState();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ---------- navigacija ----------
+document.getElementById("prevWeek").onclick = () => { currentMonday.setDate(currentMonday.getDate() - 7); loadWeek(); };
+document.getElementById("nextWeek").onclick = () => { currentMonday.setDate(currentMonday.getDate() + 7); loadWeek(); };
+document.getElementById("todayBtn").onclick = () => { currentMonday = mondayOf(new Date()); loadWeek(); };
+
+// ---------- postavke ----------
+const modal = document.getElementById("settingsModal");
+document.getElementById("settingsBtn").onclick = () => {
+  document.getElementById("cfgGroup").value = cfg.group;
+  document.getElementById("cfgProxy").value = cfg.proxy;
+  document.getElementById("cfgClientId").value = cfg.clientId;
+  modal.style.display = "flex";
+};
+document.getElementById("cfgCancel").onclick = () => { modal.style.display = "none"; };
+document.getElementById("cfgSave").onclick = () => {
+  cfg.group = document.getElementById("cfgGroup").value.trim() || "1-60";
+  cfg.proxy = document.getElementById("cfgProxy").value.trim();
+  cfg.clientId = document.getElementById("cfgClientId").value.trim();
+  localStorage.setItem(LS.group, cfg.group);
+  localStorage.setItem(LS.proxy, cfg.proxy);
+  localStorage.setItem(LS.clientId, cfg.clientId);
+  modal.style.display = "none";
+  initGoogle();
+  loadWeek();
+};
+
+// ---------- google oauth + calendar ----------
+function initGoogle() {
+  if (!cfg.clientId || typeof google === "undefined") return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cfg.clientId,
+    scope: CAL_SCOPE,
+    callback: (resp) => {
+      if (resp.error) {
+        setSyncStatus("Prijava nije uspjela: " + resp.error, true);
+        return;
+      }
+      accessToken = resp.access_token;
+      document.getElementById("googleBtn").textContent = "Prijavljen u Google";
+      document.getElementById("googleBtn").disabled = true;
+      updateAddAllState();
+    },
+  });
+}
+
+document.getElementById("googleBtn").onclick = () => {
+  if (!cfg.clientId) {
+    setSyncStatus("Prvo u postavkama unesi Google OAuth Client ID.", true);
+    return;
+  }
+  if (!tokenClient) initGoogle();
+  tokenClient.requestAccessToken();
+};
+
+function updateAddAllState() {
+  const btn = document.getElementById("addAllBtn");
+  btn.disabled = !(accessToken && currentEvents.length > 0);
+}
+
+function setSyncStatus(msg, isError) {
+  const el = document.getElementById("syncStatus");
+  el.textContent = msg;
+  el.style.color = isError ? "var(--danger)" : "var(--text-dim)";
+}
+
+document.getElementById("addAllBtn").onclick = async () => {
+  if (!accessToken) return;
+  const addedIds = new Set(JSON.parse(localStorage.getItem(LS.addedIds) || "[]"));
+  const todo = currentEvents.filter(ev => !addedIds.has(ev.id));
+
+  if (todo.length === 0) {
+    setSyncStatus("Svi termini ovog tjedna su već dodani.");
+    return;
+  }
+
+  const btn = document.getElementById("addAllBtn");
+  btn.disabled = true;
+  let done = 0, failed = 0;
+
+  for (const ev of todo) {
+    setSyncStatus(`Dodavanje ${done + failed + 1}/${todo.length}…`);
+    try {
+      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          summary: ev.title,
+          description: ev.details || "",
+          start: { dateTime: ev.start },
+          end: { dateTime: ev.end },
+        }),
+      });
+      if (res.ok) {
+        addedIds.add(ev.id);
+        done++;
+      } else {
+        failed++;
+      }
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  localStorage.setItem(LS.addedIds, JSON.stringify([...addedIds]));
+  setSyncStatus(`Gotovo: dodano ${done}${failed ? `, neuspjelo ${failed}` : ""}.`, failed > 0);
+  updateAddAllState();
+};
+
+// ---------- pwa ----------
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+// ---------- start ----------
+window.addEventListener("load", () => {
+  initGoogle();
+  if (!cfg.proxy) {
+    document.getElementById("settingsBtn").click();
+  }
+  loadWeek();
+});
+</script>
+</body>
+</html>
