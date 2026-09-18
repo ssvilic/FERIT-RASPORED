@@ -347,18 +347,29 @@ function renderWeek() {
     </div>`;
   }
 
+  // Satne oznake (svaki puni sat unutar prikazanog raspona)
+  const hourMarks = [];
+  const startHour = Math.floor(dayStartMin / 60);
+  const endHour = Math.ceil(dayEndMin / 60);
+  for (let h = startHour; h <= endHour; h++) {
+    const mins = h * 60;
+    if (mins < dayStartMin || mins > dayEndMin) continue;
+    hourMarks.push(mins);
+  }
+
   // Lijeva vremenska os
   html += `<div class="time-axis" style="grid-column:1; grid-row:2; height:${bodyHeight}px;">`;
-  for (const [pStart] of periods) {
-    const top = (toMinutes(pStart) - dayStartMin) * PX_PER_MIN;
-    html += `<div class="time-label" style="top:${top}px;">${pStart}</div>`;
+  for (const mins of hourMarks) {
+    const top = (mins - dayStartMin) * PX_PER_MIN;
+    const label = `${String(Math.floor(mins / 60)).padStart(2, "0")}:00`;
+    html += `<div class="time-label" style="top:${top}px;">${label}</div>`;
   }
   html += `</div>`;
 
-  // Vodoravne linije preko svih dana, poravnate s pocetkom svakog bloka
+  // Vodoravne linije preko svih dana, poravnate sa svakim punim satom
   html += `<div class="row-lines" style="grid-column: 2 / -1; grid-row: 2; height:${bodyHeight}px;">`;
-  for (const [pStart] of periods) {
-    const top = (toMinutes(pStart) - dayStartMin) * PX_PER_MIN;
+  for (const mins of hourMarks) {
+    const top = (mins - dayStartMin) * PX_PER_MIN;
     html += `<div class="row-line" style="top:${top}px;"></div>`;
   }
   html += `</div>`;
