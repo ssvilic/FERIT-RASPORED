@@ -67,36 +67,40 @@
   .grid-wrap { overflow-x: auto; margin-bottom: 20px; -webkit-overflow-scrolling: touch; }
   .sched-grid {
     display: grid; grid-template-columns: 56px repeat(6, minmax(118px, 1fr));
-    gap: 6px; min-width: 760px;
+    gap: 0; min-width: 760px;
   }
   .grid-cell.corner { background: transparent; }
   .day-col-head {
     background: var(--bg-panel); border-radius: 8px; padding: 8px 4px; text-align: center;
+    margin: 0 2px 6px;
   }
   .day-col-head .wd { display: block; font-weight: 600; color: var(--accent); font-size: 13px; }
   .day-col-head .dt { display: block; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
   .day-col-head.today { background: var(--today-bg); }
-  .time-cell {
-    font-size: 10px; color: var(--text-dim); text-align: right; padding: 6px 6px 0 0; line-height: 1.5;
-    border-top: 1px solid var(--grid-line);
+
+  .time-axis { position: relative; }
+  .time-axis .time-label {
+    position: absolute; right: 6px; transform: translateY(-50%);
+    font-size: 10px; color: var(--text-dim); text-align: right; line-height: 1.4; white-space: nowrap;
   }
-  .day-cell {
-    display: flex; flex-direction: column; gap: 4px;
-    border-top: 1px solid var(--grid-line); padding-top: 4px;
+  .row-lines { position: relative; }
+  .row-lines .row-line {
+    position: absolute; left: 0; right: 0; height: 1px; background: var(--grid-line);
   }
+  .day-col { position: relative; border-left: 1px solid var(--grid-line); }
   .event-card {
-    background: var(--card); border-radius: 8px; padding: 8px 8px; color: var(--card-text);
-    height: 100%;
+    position: absolute; left: 2px; right: 2px; overflow: hidden;
+    background: var(--card); border-radius: 6px; padding: 4px 6px; color: var(--card-text);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.4) inset;
   }
   .ev-time-range {
-    font-size: 10px; font-weight: 600; color: var(--card-text); opacity: 0.8;
-    margin-bottom: 3px; letter-spacing: 0.02em;
+    font-size: 9.5px; font-weight: 600; color: var(--card-text); opacity: 0.8;
+    letter-spacing: 0.02em;
   }
-  .ev-title { font-size: 11.5px; font-weight: 600; line-height: 1.3; }
+  .ev-title { font-size: 11px; font-weight: 600; line-height: 1.25; }
   .ev-details { font-size: 12px; color: var(--card-text); opacity: 0.75; margin-top: 4px; line-height: 1.5; white-space: pre-line; }
-  .ev-actions { margin-top: 5px; }
   .ev-actions a {
-    font-size: 10.5px; color: var(--card-text); text-decoration: underline; text-underline-offset: 2px;
+    font-size: 9.5px; color: var(--card-text); text-decoration: underline; text-underline-offset: 2px;
   }
 
   .empty-note, .status-note {
@@ -273,9 +277,8 @@ async function loadWeek() {
   }
 }
 
-// Standardni FERIT satni blokovi (90 min nastava + 15 min stanka).
-// Ako se u podacima pojavi termin izvan ovih (npr. ispitni rok s
-// drugim vremenima), automatski se doda kao dodatni red.
+// Standardni FERIT satni blokovi (90 min nastava + 15 min stanka) — koriste
+// se samo za oznake vremena na lijevoj osi, ne diktiraju visinu blokova.
 function buildPeriods(events) {
   const base = [
     ["08:00", "09:30"], ["09:45", "11:15"], ["11:30", "13:00"], ["13:15", "14:45"],
@@ -288,6 +291,13 @@ function buildPeriods(events) {
   });
   return [...map.values()].sort((a, b) => a[0].localeCompare(b[0]));
 }
+
+function toMinutes(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+const PX_PER_MIN = 0.85;
 
 function renderWeek() {
   const root = document.getElementById("scheduleRoot");
@@ -309,15 +319,24 @@ function renderWeek() {
 
   const periods = buildPeriods(currentEvents);
 
-  const byCell = {};
+  // Vremenski raspon osi: barem 08:00–21:45, prošireno ako neki termin ispada izvan toga.
+  let dayStartMin = toMinutes(periods[0][0]);
+  let dayEndMin = toMinutes(periods[periods.length - 1][1]);
+  currentEvents.forEach(ev => {
+    const s = toMinutes(zagrebTime(ev.start));
+    const e = toMinutes(zagrebTime(ev.end));
+    if (s < dayStartMin) dayStartMin = s;
+    if (e > dayEndMin) dayEndMin = e;
+  });
+  const bodyHeight = Math.round((dayEndMin - dayStartMin) * PX_PER_MIN);
+
+  const byDay = {};
   for (const ev of currentEvents) {
     const dKey = zagrebDateKey(ev.start);
-    const pKey = `${zagrebTime(ev.start)}|${zagrebTime(ev.end)}`;
-    byCell[dKey] = byCell[dKey] || {};
-    (byCell[dKey][pKey] = byCell[dKey][pKey] || []).push(ev);
+    (byDay[dKey] = byDay[dKey] || []).push(ev);
   }
 
-  let html = `<div class="grid-wrap"><div class="sched-grid" style="grid-template-rows:46px repeat(${periods.length}, minmax(64px, auto));">`;
+  let html = `<div class="grid-wrap"><div class="sched-grid">`;
   html += `<div class="grid-cell corner"></div>`;
   for (const d of days) {
     const dKey = fmtISODate(d);
@@ -328,22 +347,43 @@ function renderWeek() {
     </div>`;
   }
 
-  for (const [pStart, pEnd] of periods) {
-    html += `<div class="grid-cell time-cell">${pStart}<br>${pEnd}</div>`;
-    for (const d of days) {
-      const dKey = fmtISODate(d);
-      const evs = (byCell[dKey] && byCell[dKey][`${pStart}|${pEnd}`]) || [];
-      html += `<div class="grid-cell day-cell">`;
-      html += evs.map(ev => `
-        <div class="event-card" title="${escapeHtml(ev.details || "")}">
+  // Lijeva vremenska os
+  html += `<div class="time-axis" style="grid-column:1; grid-row:2; height:${bodyHeight}px;">`;
+  for (const [pStart] of periods) {
+    const top = (toMinutes(pStart) - dayStartMin) * PX_PER_MIN;
+    html += `<div class="time-label" style="top:${top}px;">${pStart}</div>`;
+  }
+  html += `</div>`;
+
+  // Vodoravne linije preko svih dana, poravnate s pocetkom svakog bloka
+  html += `<div class="row-lines" style="grid-column: 2 / -1; grid-row: 2; height:${bodyHeight}px;">`;
+  for (const [pStart] of periods) {
+    const top = (toMinutes(pStart) - dayStartMin) * PX_PER_MIN;
+    html += `<div class="row-line" style="top:${top}px;"></div>`;
+  }
+  html += `</div>`;
+
+  // Stupci po danima s blokovima skaliranim prema trajanju
+  days.forEach((d, i) => {
+    const dKey = fmtISODate(d);
+    const evs = byDay[dKey] || [];
+    html += `<div class="day-col" style="grid-column:${i + 2}; grid-row:2; height:${bodyHeight}px;">`;
+    html += evs.map(ev => {
+      const s = toMinutes(zagrebTime(ev.start));
+      const e = toMinutes(zagrebTime(ev.end));
+      const top = (s - dayStartMin) * PX_PER_MIN;
+      const h = Math.max(20, (e - s) * PX_PER_MIN);
+      return `
+        <div class="event-card" style="top:${top}px; height:${h}px;" title="${escapeHtml(ev.details || "")}">
           <div class="ev-time-range">${zagrebTime(ev.start)} – ${zagrebTime(ev.end)}</div>
           <div class="ev-title">${escapeHtml(ev.title)}</div>
           <div class="ev-actions"><a href="${ev.calendarUrl}" target="_blank" rel="noopener">+ kalendar</a></div>
         </div>
-      `).join("");
-      html += `</div>`;
-    }
-  }
+      `;
+    }).join("");
+    html += `</div>`;
+  });
+
   html += `</div></div>`;
   root.innerHTML = html;
   updateAddAllState();
