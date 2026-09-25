@@ -3,8 +3,8 @@
   "short_name": "Raspored",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0F2340",
-  "theme_color": "#0F2340",
+  "background_color": "#2E3440",
+  "theme_color": "#2E3440",
   "icons": [
     {
       "src": "icon-192.png",

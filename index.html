@@ -5,23 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raspored — FERIT</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#2E3440">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #FFFFFF;
-    --bg-panel: #F0F0F0;
-    --bg-panel-2: #E7E7E7;
-    --grid-line: #E4E4E4;
-    --card: #F8C878;
-    --card-text: #3B4A63;
-    --today-bg: #F5E3C0;
-    --accent: #3B4A63;
-    --accent-cta: #F5B94D;
-    --text: #2F3B52;
-    --text-dim: #9A9A9A;
-    --danger: #C0392B;
+    /* Nord dark */
+    --bg: #2E3440;
+    --bg-panel: #3B4252;
+    --bg-panel-2: #434C5E;
+    --grid-line: #4C566A;
+    --text: #ECEFF4;
+    --text-dim: #9AA5BD;
+    --accent: #88C0D0;
+    --accent-cta: #88C0D0;
+    --accent-cta-text: #2E3440;
+    --today-bg: #5E81AC;
+    --danger: #BF616A;
+    /* boje po tipu nastave — tekst na svima ostaje tamni (--card-text) */
+    --card-text: #2E3440;
+    --type-p: #EBCB8B;   /* predavanje — žuta */
+    --type-av: #A3BE8C;  /* auditorne vježbe — svijetlo zelena */
+    --type-lv: #88C0D0;  /* laboratorijske vježbe — svijetlo plava */
+    --type-kv: #D6939B;  /* konstrukcijske vježbe — svijetlije crvena */
+    --type-unk: #B0B8C9; /* nepoznato — neutralna */
   }
   * { box-sizing: border-box; }
   body {
@@ -77,6 +84,7 @@
   .day-col-head .wd { display: block; font-weight: 600; color: var(--accent); font-size: 13px; }
   .day-col-head .dt { display: block; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
   .day-col-head.today { background: var(--today-bg); }
+  .day-col-head.today .wd, .day-col-head.today .dt { color: var(--text); }
 
   .time-axis { position: relative; }
   .time-axis .time-label {
@@ -90,14 +98,21 @@
   .day-col { position: relative; border-left: 1px solid var(--grid-line); }
   .event-card {
     position: absolute; left: 2px; right: 2px; overflow: hidden;
-    background: var(--card); border-radius: 6px; padding: 4px 6px; color: var(--card-text);
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.4) inset;
+    border-radius: 6px; padding: 4px 6px; color: var(--card-text);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.35) inset;
   }
   .ev-time-range {
-    font-size: 9.5px; font-weight: 600; color: var(--card-text); opacity: 0.8;
+    font-size: 9.5px; font-weight: 600; color: var(--card-text); opacity: 0.75;
     letter-spacing: 0.02em;
   }
-  .ev-title { font-size: 11px; font-weight: 600; line-height: 1.25; }
+  .ev-type-tag {
+    display: inline-block; font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.03em; color: var(--card-text); opacity: 0.9;
+  }
+  .ev-title { font-size: 11px; font-weight: 600; line-height: 1.25; margin-top: 1px; }
+  .ev-room {
+    font-size: 10px; font-weight: 500; color: var(--card-text); opacity: 0.85; margin-top: 3px;
+  }
   .ev-details { font-size: 12px; color: var(--card-text); opacity: 0.75; margin-top: 4px; line-height: 1.5; white-space: pre-line; }
   .ev-actions a {
     font-size: 9.5px; color: var(--card-text); text-decoration: underline; text-underline-offset: 2px;
@@ -114,7 +129,7 @@
     display: flex; flex-direction: column; gap: 10px;
   }
   .cal-bar button {
-    background: var(--accent-cta); color: var(--accent); border: none; border-radius: 10px;
+    background: var(--accent-cta); color: var(--accent-cta-text); border: none; border-radius: 10px;
     padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
   }
   .cal-bar button.secondary { background: none; border: 1px solid var(--accent); color: var(--accent); }
@@ -122,23 +137,23 @@
   .cal-bar .sync-status { font-size: 12px; color: var(--text-dim); }
 
   .modal-back {
-    position: fixed; inset: 0; background: rgba(47, 59, 82, 0.45);
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
     display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20;
   }
   .modal {
-    background: #FFFFFF; border: 1px solid var(--grid-line); border-radius: 14px; padding: 22px; max-width: 420px; width: 100%;
+    background: var(--bg-panel); border: 1px solid var(--grid-line); border-radius: 14px; padding: 22px; max-width: 420px; width: 100%;
   }
   .modal h2 { font-size: 16px; margin: 0 0 14px; color: var(--accent); }
   .modal label { display: block; font-size: 12px; color: var(--text-dim); margin: 12px 0 4px; }
   .modal input {
-    width: 100%; background: var(--bg-panel); border: 1px solid var(--grid-line); color: var(--text);
+    width: 100%; background: var(--bg-panel-2); border: 1px solid var(--grid-line); color: var(--text);
     border-radius: 8px; padding: 9px 10px; font-size: 13px;
   }
   .modal .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
   .modal button {
     flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 14px; cursor: pointer;
   }
-  .modal button.primary { background: var(--accent-cta); color: var(--accent); font-weight: 600; }
+  .modal button.primary { background: var(--accent-cta); color: var(--accent-cta-text); font-weight: 600; }
   .modal button.ghost { background: none; border: 1px solid var(--grid-line); color: var(--text); }
   .modal p.hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-top: 10px; }
 </style>
@@ -277,6 +292,40 @@ async function loadWeek() {
   }
 }
 
+const TYPE_STYLE = {
+  P: { label: "Predavanje", color: "var(--type-p)" },
+  AV: { label: "AV", color: "var(--type-av)" },
+  LV: { label: "LV", color: "var(--type-lv)" },
+  KV: { label: "KV", color: "var(--type-kv)" },
+  UNK: { label: "Nepoznato", color: "var(--type-unk)" },
+};
+
+// FERIT-ov "text" parametar zna izgledati npr. "Elektronika I AV - auditorne
+// vježbe K2-11" ili "Matematika II Nepoznato T2-31". Iz toga izvlačimo:
+// prostoriju (zadnji token oblika K2-11/T2-31...), tip nastave (P/AV/LV/KV)
+// i "čisto" ime kolegija bez tih dodataka.
+function parseEventTitle(title) {
+  const roomMatch = title.match(/([A-ZČĆŠĐŽ]{1,4}\d[\w-]*)\s*$/);
+  const room = roomMatch ? roomMatch[1] : "";
+  let rest = room ? title.slice(0, title.lastIndexOf(room)).trim() : title.trim();
+
+  let typeKey = "P";
+  if (/\bAV\b/.test(rest)) typeKey = "AV";
+  else if (/\bLV\b/.test(rest)) typeKey = "LV";
+  else if (/\bKV\b/.test(rest)) typeKey = "KV";
+  else if (/nepoznato/i.test(rest)) typeKey = "UNK";
+
+  const course = rest
+    .replace(/\b(AV|LV|KV|P)\b/, "")
+    .replace(/-\s*(auditorne|laboratorijske|konstrukcijske)?\s*vježbe\s*/i, "")
+    .replace(/nepoznato/i, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/[\s-]+$/, "")
+    .trim();
+
+  return { course: course || rest.trim(), type: TYPE_STYLE[typeKey], room };
+}
+
 // Standardni FERIT satni blokovi (90 min nastava + 15 min stanka) — koriste
 // se samo za oznake vremena na lijevoj osi, ne diktiraju visinu blokova.
 function buildPeriods(events) {
@@ -347,29 +396,18 @@ function renderWeek() {
     </div>`;
   }
 
-  // Satne oznake (svaki puni sat unutar prikazanog raspona)
-  const hourMarks = [];
-  const startHour = Math.floor(dayStartMin / 60);
-  const endHour = Math.ceil(dayEndMin / 60);
-  for (let h = startHour; h <= endHour; h++) {
-    const mins = h * 60;
-    if (mins < dayStartMin || mins > dayEndMin) continue;
-    hourMarks.push(mins);
-  }
-
   // Lijeva vremenska os
   html += `<div class="time-axis" style="grid-column:1; grid-row:2; height:${bodyHeight}px;">`;
-  for (const mins of hourMarks) {
-    const top = (mins - dayStartMin) * PX_PER_MIN;
-    const label = `${String(Math.floor(mins / 60)).padStart(2, "0")}:00`;
-    html += `<div class="time-label" style="top:${top}px;">${label}</div>`;
+  for (const [pStart] of periods) {
+    const top = (toMinutes(pStart) - dayStartMin) * PX_PER_MIN;
+    html += `<div class="time-label" style="top:${top}px;">${pStart}</div>`;
   }
   html += `</div>`;
 
-  // Vodoravne linije preko svih dana, poravnate sa svakim punim satom
+  // Vodoravne linije preko svih dana, poravnate s pocetkom svakog bloka
   html += `<div class="row-lines" style="grid-column: 2 / -1; grid-row: 2; height:${bodyHeight}px;">`;
-  for (const mins of hourMarks) {
-    const top = (mins - dayStartMin) * PX_PER_MIN;
+  for (const [pStart] of periods) {
+    const top = (toMinutes(pStart) - dayStartMin) * PX_PER_MIN;
     html += `<div class="row-line" style="top:${top}px;"></div>`;
   }
   html += `</div>`;
@@ -384,10 +422,13 @@ function renderWeek() {
       const e = toMinutes(zagrebTime(ev.end));
       const top = (s - dayStartMin) * PX_PER_MIN;
       const h = Math.max(20, (e - s) * PX_PER_MIN);
+      const p = parseEventTitle(ev.title);
       return `
-        <div class="event-card" style="top:${top}px; height:${h}px;" title="${escapeHtml(ev.details || "")}">
+        <div class="event-card" style="top:${top}px; height:${h}px; background:${p.type.color};" title="${escapeHtml(ev.details || "")}">
           <div class="ev-time-range">${zagrebTime(ev.start)} – ${zagrebTime(ev.end)}</div>
-          <div class="ev-title">${escapeHtml(ev.title)}</div>
+          <div class="ev-type-tag">${escapeHtml(p.type.label)}</div>
+          <div class="ev-title">${escapeHtml(p.course)}</div>
+          ${p.room ? `<div class="ev-room">📍 ${escapeHtml(p.room)}</div>` : ""}
           <div class="ev-actions"><a href="${ev.calendarUrl}" target="_blank" rel="noopener">+ kalendar</a></div>
         </div>
       `;
