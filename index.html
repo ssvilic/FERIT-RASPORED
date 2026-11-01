@@ -177,9 +177,8 @@
   <button class="today-btn" id="todayBtn">Danas</button>
 
   <div class="cal-bar">
-    <button id="googleBtn">Prijavi se Google računom</button>
-    <button id="addAllBtn" class="secondary" disabled>Dodaj prikazani tjedan u kalendar</button>
-    <div class="sync-status" id="syncStatus"></div>
+    <button id="icsBtn" disabled>Preuzmi tjedan za kalendar (.ics)</button>
+    <div class="sync-status">Ili klikni na pojedini termin da ga dodaš u Google kalendar.</div>
   </div>
 
   <div id="scheduleRoot">
@@ -197,11 +196,11 @@
     <input id="cfgLvGroup" placeholder="RI-LV2">
     <label for="cfgTkGroup">Grupa za tjelesni (npr. RI-LV1, prazno = sve grupe)</label>
     <input id="cfgTkGroup" placeholder="prazno = sve">
-    <label for="cfgProxy">URL Cloudflare Worker proxyja</label>
-    <input id="cfgProxy" placeholder="https://tvoj-worker.workers.dev">
-    <label for="cfgClientId">Google OAuth Client ID</label>
-    <input id="cfgClientId" placeholder="xxxx.apps.googleusercontent.com">
-    <p class="hint">Client ID trebaš napraviti jednom u Google Cloud Console (OAuth consent + Web application credential). Bez njega prijava u Google radi, ali dodavanje u kalendar neće.</p>
+    <div id="proxyField">
+      <label for="cfgProxy">URL Cloudflare Worker proxyja</label>
+      <input id="cfgProxy" placeholder="https://tvoj-worker.workers.dev">
+    </div>
+    <p class="hint">Kod grupe je zadnji dio linka na službenom rasporedu (npr. .../2026-10-05/<b>2-60</b>). Postavke se spremaju samo u tvom pregledniku.</p>
     <div class="modal-actions">
       <button class="ghost" id="cfgCancel">Odustani</button>
       <button class="primary" id="cfgSave">Spremi</button>
@@ -209,32 +208,27 @@
   </div>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
-const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+// Zadani URL zajedničkog Cloudflare Worker proxyja (upiši svoj, pa ga kolege ne moraju unositi)
+const DEFAULT_PROXY = "";
 const LS = {
   group: "raspored_group",
   proxy: "raspored_proxy",
-  clientId: "raspored_client_id",
-  addedIds: "raspored_added_ids",
   lvGroup: "raspored_lv_group",
   tkGroup: "raspored_tk_group",
 };
 
 let cfg = {
-  group: localStorage.getItem(LS.group) || "1-60",
-  proxy: localStorage.getItem(LS.proxy) || "",
-  clientId: localStorage.getItem(LS.clientId) || "",
+  group: localStorage.getItem(LS.group) || "",
+  proxy: localStorage.getItem(LS.proxy) || DEFAULT_PROXY,
   // grupa za laboratorijske vježbe; prazno = prikaži sve LV grupe
-  lvGroup: localStorage.getItem(LS.lvGroup) ?? "RI-LV2",
+  lvGroup: localStorage.getItem(LS.lvGroup) ?? "",
   // grupa za tjelesnu kulturu; prazno = prikaži sve
   tkGroup: localStorage.getItem(LS.tkGroup) || "",
 };
 
 let currentMonday = mondayOf(new Date());
 let currentEvents = [];
-let accessToken = null;
-let tokenClient = null;
 
 // ---------- datumi ----------
 function mondayOf(date) {
@@ -280,6 +274,13 @@ async function loadWeek() {
 
   if (!cfg.proxy) {
     root.innerHTML = `<div class="status-note error">Prvo u postavkama (⚙) unesi URL svog Cloudflare Worker proxyja.</div>`;
+    return;
+  }
+
+  if (!cfg.group) {
+    root.innerHTML = `<div class="status-note error">Upiši kod svoje grupe u postavkama (⚙).</div>`;
+    currentEvents = [];
+    updateAddAllState();
     return;
   }
 
@@ -480,111 +481,73 @@ const modal = document.getElementById("settingsModal");
 document.getElementById("settingsBtn").onclick = () => {
   document.getElementById("cfgGroup").value = cfg.group;
   document.getElementById("cfgProxy").value = cfg.proxy;
-  document.getElementById("cfgClientId").value = cfg.clientId;
+  document.getElementById("proxyField").style.display = DEFAULT_PROXY ? "none" : "block";
   document.getElementById("cfgLvGroup").value = cfg.lvGroup;
   document.getElementById("cfgTkGroup").value = cfg.tkGroup;
   modal.style.display = "flex";
 };
 document.getElementById("cfgCancel").onclick = () => { modal.style.display = "none"; };
 document.getElementById("cfgSave").onclick = () => {
-  cfg.group = document.getElementById("cfgGroup").value.trim() || "1-60";
-  cfg.proxy = document.getElementById("cfgProxy").value.trim();
-  cfg.clientId = document.getElementById("cfgClientId").value.trim();
+  const groupVal = document.getElementById("cfgGroup").value.trim();
+  if (!groupVal) { document.getElementById("cfgGroup").focus(); return; }
+  cfg.group = groupVal;
+  cfg.proxy = document.getElementById("cfgProxy").value.trim() || DEFAULT_PROXY;
   cfg.lvGroup = document.getElementById("cfgLvGroup").value.trim();
   cfg.tkGroup = document.getElementById("cfgTkGroup").value.trim();
   localStorage.setItem(LS.lvGroup, cfg.lvGroup);
   localStorage.setItem(LS.tkGroup, cfg.tkGroup);
   localStorage.setItem(LS.group, cfg.group);
   localStorage.setItem(LS.proxy, cfg.proxy);
-  localStorage.setItem(LS.clientId, cfg.clientId);
   modal.style.display = "none";
-  initGoogle();
   loadWeek();
 };
 
-// ---------- google oauth + calendar ----------
-function initGoogle() {
-  if (!cfg.clientId || typeof google === "undefined") return;
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: cfg.clientId,
-    scope: CAL_SCOPE,
-    callback: (resp) => {
-      if (resp.error) {
-        setSyncStatus("Prijava nije uspjela: " + resp.error, true);
-        return;
-      }
-      accessToken = resp.access_token;
-      document.getElementById("googleBtn").textContent = "Prijavljen u Google";
-      document.getElementById("googleBtn").disabled = true;
-      updateAddAllState();
-    },
-  });
-}
-
-document.getElementById("googleBtn").onclick = () => {
-  if (!cfg.clientId) {
-    setSyncStatus("Prvo u postavkama unesi Google OAuth Client ID.", true);
-    return;
-  }
-  if (!tokenClient) initGoogle();
-  tokenClient.requestAccessToken();
-};
-
+// ---------- izvoz u kalendar (.ics) ----------
 function updateAddAllState() {
-  const btn = document.getElementById("addAllBtn");
-  btn.disabled = !(accessToken && currentEvents.length > 0);
+  document.getElementById("icsBtn").disabled = currentEvents.length === 0;
 }
 
-function setSyncStatus(msg, isError) {
-  const el = document.getElementById("syncStatus");
-  el.textContent = msg;
-  el.style.color = isError ? "var(--danger)" : "var(--text-dim)";
+function icsEscape(t) {
+  return String(t).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 }
+function icsFold(line) {
+  const out = [];
+  while (line.length > 70) { out.push(line.slice(0, 70)); line = " " + line.slice(70); }
+  out.push(line);
+  return out.join("\r\n");
+}
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(16);
+}
+function toIcsTime(iso) { return iso.replace(/[-:]/g, ""); }
 
-document.getElementById("addAllBtn").onclick = async () => {
-  if (!accessToken) return;
-  const addedIds = new Set(JSON.parse(localStorage.getItem(LS.addedIds) || "[]"));
-  const todo = currentEvents.filter(ev => !addedIds.has(ev.id));
-
-  if (todo.length === 0) {
-    setSyncStatus("Svi termini ovog tjedna su već dodani.");
-    return;
+document.getElementById("icsBtn").onclick = () => {
+  if (currentEvents.length === 0) return;
+  const stamp = toIcsTime(new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//FERIT raspored//HR", "CALSCALE:GREGORIAN"];
+  for (const ev of currentEvents) {
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${simpleHash(ev.id)}-${toIcsTime(ev.start)}@raspored-ferit`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART:${toIcsTime(ev.start)}`,
+      `DTEND:${toIcsTime(ev.end)}`,
+      `SUMMARY:${icsEscape(ev.title)}`,
+      `DESCRIPTION:${icsEscape(ev.details || "")}`,
+      "END:VEVENT"
+    );
   }
-
-  const btn = document.getElementById("addAllBtn");
-  btn.disabled = true;
-  let done = 0, failed = 0;
-
-  for (const ev of todo) {
-    setSyncStatus(`Dodavanje ${done + failed + 1}/${todo.length}…`);
-    try {
-      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          summary: ev.title,
-          description: ev.details || "",
-          start: { dateTime: ev.start },
-          end: { dateTime: ev.end },
-        }),
-      });
-      if (res.ok) {
-        addedIds.add(ev.id);
-        done++;
-      } else {
-        failed++;
-      }
-    } catch (e) {
-      failed++;
-    }
-  }
-
-  localStorage.setItem(LS.addedIds, JSON.stringify([...addedIds]));
-  setSyncStatus(`Gotovo: dodano ${done}${failed ? `, neuspjelo ${failed}` : ""}.`, failed > 0);
-  updateAddAllState();
+  lines.push("END:VCALENDAR");
+  const blob = new Blob([lines.map(icsFold).join("\r\n") + "\r\n"], { type: "text/calendar;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `raspored-${fmtISODate(currentMonday)}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 };
 
 // ---------- pwa ----------
@@ -594,8 +557,7 @@ if ("serviceWorker" in navigator) {
 
 // ---------- start ----------
 window.addEventListener("load", () => {
-  initGoogle();
-  if (!cfg.proxy) {
+  if (!cfg.proxy || !cfg.group) {
     document.getElementById("settingsBtn").click();
   }
   loadWeek();
