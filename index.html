@@ -195,6 +195,8 @@
     <input id="cfgGroup" placeholder="1-60">
     <label for="cfgLvGroup">Grupa za laboratorijske vježbe (npr. RI-LV2, prazno = sve)</label>
     <input id="cfgLvGroup" placeholder="RI-LV2">
+    <label for="cfgTkGroup">Grupa za tjelesni (npr. RI-LV1, prazno = sve grupe)</label>
+    <input id="cfgTkGroup" placeholder="prazno = sve">
     <label for="cfgProxy">URL Cloudflare Worker proxyja</label>
     <input id="cfgProxy" placeholder="https://tvoj-worker.workers.dev">
     <label for="cfgClientId">Google OAuth Client ID</label>
@@ -216,6 +218,7 @@ const LS = {
   clientId: "raspored_client_id",
   addedIds: "raspored_added_ids",
   lvGroup: "raspored_lv_group",
+  tkGroup: "raspored_tk_group",
 };
 
 let cfg = {
@@ -224,6 +227,8 @@ let cfg = {
   clientId: localStorage.getItem(LS.clientId) || "",
   // grupa za laboratorijske vježbe; prazno = prikaži sve LV grupe
   lvGroup: localStorage.getItem(LS.lvGroup) ?? "RI-LV2",
+  // grupa za tjelesnu kulturu; prazno = prikaži sve
+  tkGroup: localStorage.getItem(LS.tkGroup) || "",
 };
 
 let currentMonday = mondayOf(new Date());
@@ -291,13 +296,16 @@ async function loadWeek() {
       updateAddAllState();
       return;
     }
+    const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
     currentEvents = (data.events || []).filter(ev => {
-      if (!cfg.lvGroup) return true;
-      if (!/\bLV\b/.test(ev.title)) return true;
       // details izgleda npr. "Grupa RI-LV1  PREZIME IME: https://..."
       const m = (ev.details || "").match(/Grupa\s+(\S+)/);
-      const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
-      return m ? norm(m[1]) === norm(cfg.lvGroup) : true;
+      const grp = m ? norm(m[1]) : null;
+      // Tjelesna kultura je također označena kao LV, ali ima vlastite grupe
+      const isTk = /tjelesna kultura/i.test(ev.title);
+      const wanted = isTk ? cfg.tkGroup : (/\bLV\b/.test(ev.title) ? cfg.lvGroup : "");
+      if (!wanted || !grp) return true;
+      return grp === norm(wanted);
     });
     renderWeek();
   } catch (err) {
@@ -474,6 +482,7 @@ document.getElementById("settingsBtn").onclick = () => {
   document.getElementById("cfgProxy").value = cfg.proxy;
   document.getElementById("cfgClientId").value = cfg.clientId;
   document.getElementById("cfgLvGroup").value = cfg.lvGroup;
+  document.getElementById("cfgTkGroup").value = cfg.tkGroup;
   modal.style.display = "flex";
 };
 document.getElementById("cfgCancel").onclick = () => { modal.style.display = "none"; };
@@ -482,7 +491,9 @@ document.getElementById("cfgSave").onclick = () => {
   cfg.proxy = document.getElementById("cfgProxy").value.trim();
   cfg.clientId = document.getElementById("cfgClientId").value.trim();
   cfg.lvGroup = document.getElementById("cfgLvGroup").value.trim();
+  cfg.tkGroup = document.getElementById("cfgTkGroup").value.trim();
   localStorage.setItem(LS.lvGroup, cfg.lvGroup);
+  localStorage.setItem(LS.tkGroup, cfg.tkGroup);
   localStorage.setItem(LS.group, cfg.group);
   localStorage.setItem(LS.proxy, cfg.proxy);
   localStorage.setItem(LS.clientId, cfg.clientId);
