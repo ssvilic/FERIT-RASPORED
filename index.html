@@ -193,6 +193,8 @@
     <h2>Postavke</h2>
     <label for="cfgGroup">Kod grupe (zadnji dio URL-a rasporeda, npr. 1-60)</label>
     <input id="cfgGroup" placeholder="1-60">
+    <label for="cfgLvGroup">Grupa za laboratorijske vježbe (npr. RI-LV2, prazno = sve)</label>
+    <input id="cfgLvGroup" placeholder="RI-LV2">
     <label for="cfgProxy">URL Cloudflare Worker proxyja</label>
     <input id="cfgProxy" placeholder="https://tvoj-worker.workers.dev">
     <label for="cfgClientId">Google OAuth Client ID</label>
@@ -213,12 +215,15 @@ const LS = {
   proxy: "raspored_proxy",
   clientId: "raspored_client_id",
   addedIds: "raspored_added_ids",
+  lvGroup: "raspored_lv_group",
 };
 
 let cfg = {
   group: localStorage.getItem(LS.group) || "1-60",
   proxy: localStorage.getItem(LS.proxy) || "",
   clientId: localStorage.getItem(LS.clientId) || "",
+  // grupa za laboratorijske vježbe; prazno = prikaži sve LV grupe
+  lvGroup: localStorage.getItem(LS.lvGroup) ?? "RI-LV2",
 };
 
 let currentMonday = mondayOf(new Date());
@@ -286,7 +291,14 @@ async function loadWeek() {
       updateAddAllState();
       return;
     }
-    currentEvents = data.events || [];
+    currentEvents = (data.events || []).filter(ev => {
+      if (!cfg.lvGroup) return true;
+      if (!/\bLV\b/.test(ev.title)) return true;
+      // details izgleda npr. "Grupa RI-LV1  PREZIME IME: https://..."
+      const m = (ev.details || "").match(/Grupa\s+(\S+)/);
+      const norm = s => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      return m ? norm(m[1]) === norm(cfg.lvGroup) : true;
+    });
     renderWeek();
   } catch (err) {
     root.innerHTML = `<div class="status-note error">Ne mogu se spojiti na proxy. Provjeri URL u postavkama.</div>`;
@@ -461,6 +473,7 @@ document.getElementById("settingsBtn").onclick = () => {
   document.getElementById("cfgGroup").value = cfg.group;
   document.getElementById("cfgProxy").value = cfg.proxy;
   document.getElementById("cfgClientId").value = cfg.clientId;
+  document.getElementById("cfgLvGroup").value = cfg.lvGroup;
   modal.style.display = "flex";
 };
 document.getElementById("cfgCancel").onclick = () => { modal.style.display = "none"; };
@@ -468,6 +481,8 @@ document.getElementById("cfgSave").onclick = () => {
   cfg.group = document.getElementById("cfgGroup").value.trim() || "1-60";
   cfg.proxy = document.getElementById("cfgProxy").value.trim();
   cfg.clientId = document.getElementById("cfgClientId").value.trim();
+  cfg.lvGroup = document.getElementById("cfgLvGroup").value.trim();
+  localStorage.setItem(LS.lvGroup, cfg.lvGroup);
   localStorage.setItem(LS.group, cfg.group);
   localStorage.setItem(LS.proxy, cfg.proxy);
   localStorage.setItem(LS.clientId, cfg.clientId);
